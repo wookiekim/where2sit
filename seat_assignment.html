@@ -572,12 +572,6 @@
         }
 
         function generateMoveChains(assignments) {
-            // Create a map of new seat -> student
-            const seatToStudent = {};
-            for (const [student, seat] of Object.entries(assignments)) {
-                seatToStudent[seat] = student;
-            }
-
             // Create a map of student -> current seat
             const studentToCurrentSeat = {};
             studentPreferences.forEach(pref => {
@@ -585,116 +579,68 @@
             });
 
             const chains = [];
-            const usedStudents = new Set();
+            const processedStudents = new Set();
 
-            // Find chains
+            // Process each student who got a new assignment
             for (const [startStudent, newSeat] of Object.entries(assignments)) {
-                if (usedStudents.has(startStudent)) continue;
+                if (processedStudents.has(startStudent)) continue;
 
                 const chain = [];
+                const studentsInChain = new Set();
                 let currentStudent = startStudent;
-                let currentSeat = studentToCurrentSeat[currentStudent];
-                let newAssignedSeat = assignments[currentStudent];
+                let isCycle = false;
 
-                while (true) {
-                    // Add current student to chain
+                // Follow the chain
+                while (currentStudent && !studentsInChain.has(currentStudent)) {
+                    const currentSeat = studentToCurrentSeat[currentStudent];
+                    const assignedSeat = assignments[currentStudent];
+
+                    if (!assignedSeat) break; // Student has no new assignment
+
                     chain.push({
                         student: currentStudent,
-                        currentSeat: currentSeat
+                        currentSeat: currentSeat,
+                        newSeat: assignedSeat
                     });
-                    usedStudents.add(currentStudent);
 
-                    // Find who currently sits in the new assigned seat
+                    studentsInChain.add(currentStudent);
+                    processedStudents.add(currentStudent);
+
+                    // Find who currently sits in the seat this student is moving to
                     const nextStudent = Object.keys(studentToCurrentSeat)
-                        .find(student => studentToCurrentSeat[student] === newAssignedSeat);
-                    
-                    // If no one currently sits in this seat, end with seat number
-                    if (!nextStudent) {
-                        chain.push({
-                            student: newAssignedSeat.toString(),
-                            currentSeat: null,
-                            isEmptySeat: true
-                        });
-                        if (chain.length > 1) {
-                            mergeOrAddChain(chains, chain);
-                        }
-                        break;
-                    }
-                    
-                    // If we've completed the cycle back to start
+                        .find(student => studentToCurrentSeat[student] === assignedSeat);
+
+                    // Check if this completes a cycle
                     if (nextStudent === startStudent) {
-                        if (chain.length > 1) {
-                            mergeOrAddChain(chains, chain);
-                        }
+                        isCycle = true;
                         break;
                     }
 
-                    // Move to next student
-                    currentStudent = nextStudent;
-                    currentSeat = studentToCurrentSeat[currentStudent];
-                    newAssignedSeat = assignments[currentStudent];
-                }
-            }
-
-            function mergeOrAddChain(chains, newChain) {
-                // Convert chain to set of students for easier comparison
-                const newChainStudents = new Set(
-                    newChain.map(node => node.student)
-                        .filter(student => !isNumeric(student)) // Exclude seat numbers
-                );
-
-                // Find any existing chain that shares students with the new chain
-                const overlappingChainIndex = chains.findIndex(existingChain => {
-                    const existingStudents = new Set(
-                        existingChain.map(node => node.student)
-                            .filter(student => !isNumeric(student))
-                    );
-                    return [...newChainStudents].some(student => existingStudents.has(student));
-                });
-
-                if (overlappingChainIndex === -1) {
-                    // No overlap found, add as new chain
-                    chains.push(newChain);
-                } else {
-                    // Merge with existing chain
-                    const existingChain = chains[overlappingChainIndex];
-                    const mergedStudents = new Set([
-                        ...existingChain.map(node => node.student),
-                        ...newChain.map(node => node.student)
-                    ]);
-                    
-                    // Create a new merged chain maintaining move order
-                    const mergedChain = [];
-                    let currentStudent = existingChain[0].student;
-                    const allMoves = new Map();
-                    
-                    // Build map of all moves
-                    [...existingChain, ...newChain].forEach((node, i, arr) => {
-                        if (i < arr.length - 1 && !isNumeric(arr[i + 1].student)) {
-                            allMoves.set(node.student, arr[i + 1]);
+                    // Check if next student also got a new assignment (continues the chain)
+                    if (nextStudent && assignments[nextStudent]) {
+                        currentStudent = nextStudent;
+                    } else {
+                        // Chain ends here (moving to empty seat or to someone not moving)
+                        if (nextStudent) {
+                            // Someone sits there but isn't moving - this shouldn't happen in valid logic
+                            chain.push({
+                                student: nextStudent,
+                                currentSeat: assignedSeat,
+                                newSeat: null,
+                                isBlocking: true
+                            });
                         }
-                    });
-
-                    // Build merged chain
-                    while (mergedChain.length < mergedStudents.size) {
-                        const currentNode = {
-                            student: currentStudent,
-                            currentSeat: studentToCurrentSeat[currentStudent]
-                        };
-                        mergedChain.push(currentNode);
-                        
-                        const nextNode = allMoves.get(currentStudent);
-                        if (!nextNode) break;
-                        currentStudent = nextNode.student;
+                        break;
                     }
-
-                    // Replace existing chain with merged chain
-                    chains[overlappingChainIndex] = mergedChain;
                 }
-            }
 
-            function isNumeric(str) {
-                return !isNaN(str) && !isNaN(parseFloat(str));
+                // Only add chains with at least 1 move
+                if (chain.length >= 1) {
+                    chains.push({
+                        nodes: chain,
+                        isCycle: isCycle
+                    });
+                }
             }
 
             return chains;
@@ -702,36 +648,52 @@
 
         function displayMoveChains(chains) {
             const resultsContainer = document.getElementById('resultsContainer');
-            
+
             // Remove existing move chains section if it exists
             const existingChainsSection = resultsContainer.querySelector('.move-chains-section');
             if (existingChainsSection) {
                 existingChainsSection.remove();
             }
-            
+
             // Create new move chains section with a specific class
             const chainsSection = document.createElement('div');
-            chainsSection.className = 'move-chains-section';  // Add specific class for easier targeting
+            chainsSection.className = 'move-chains-section';
             chainsSection.innerHTML = '<h2>Move Chains</h2>';
-            
+
             if (chains.length === 0) {
                 chainsSection.innerHTML += '<p>No move chains found.</p>';
             } else {
-                chains.forEach((chain, index) => {
+                chains.forEach((chainData, index) => {
                     const chainDiv = document.createElement('div');
                     chainDiv.style.marginBottom = '10px';
-                    
+
+                    const chain = chainData.nodes;
+                    const isCycle = chainData.isCycle;
+
+                    // Build chain text
                     const chainText = chain.map((node, i) => {
-                        const arrow = i < chain.length - 1 ? ' → ' : 
-                            ` → ${chain[0].student} (${chain[0].currentSeat})`; // Complete the cycle
-                        return `${node.student} (${node.currentSeat})${arrow}`;
+                        let text = `${node.student} (${node.currentSeat})`;
+
+                        // Add arrow
+                        if (i < chain.length - 1) {
+                            text += ' → ';
+                        } else if (isCycle) {
+                            // For cycles, show arrow back to start
+                            text += ` → ${chain[0].student} (${chain[0].currentSeat})`;
+                        } else if (!node.isBlocking) {
+                            // For non-cycles, show the final destination seat
+                            text += ` → ${node.newSeat}`;
+                        }
+
+                        return text;
                     }).join('');
-                    
-                    chainDiv.textContent = `Chain ${index + 1}: ${chainText}`;
+
+                    const cycleLabel = isCycle ? ' [CYCLE]' : '';
+                    chainDiv.textContent = `Chain ${index + 1}${cycleLabel}: ${chainText}`;
                     chainsSection.appendChild(chainDiv);
                 });
             }
-            
+
             // Add the chains section after the raffle order
             resultsContainer.appendChild(chainsSection);
         }
