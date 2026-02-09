@@ -581,50 +581,47 @@
             const chains = [];
             const processedStudents = new Set();
 
-            // Build a graph of who points to whom
-            const pointsTo = {}; // student -> next student in chain
+            // Build reverse mapping: who points to each student
+            const pointedToBy = {}; // student -> who points to them
             for (const [student, assignedSeat] of Object.entries(assignments)) {
                 const whoSitsThere = Object.keys(studentToCurrentSeat)
                     .find(s => studentToCurrentSeat[s] === assignedSeat);
                 if (whoSitsThere && assignments[whoSitsThere]) {
-                    pointsTo[student] = whoSitsThere;
+                    pointedToBy[whoSitsThere] = student;
                 }
             }
-
-            // Find students who aren't pointed to by anyone (potential chain heads)
-            const isPointedTo = new Set(Object.values(pointsTo));
 
             // Process each student who got a new assignment
             for (const [startStudent, newSeat] of Object.entries(assignments)) {
                 if (processedStudents.has(startStudent)) continue;
 
-                // Skip if this student is pointed to by another (they're in the middle of a chain)
-                // UNLESS all students in their component are already pointed to (meaning it's a cycle)
-                if (isPointedTo.has(startStudent)) {
-                    // Check if any student in this chain/cycle hasn't been processed
+                // Skip if someone points to this student (they're not a chain head)
+                // Exception: if this student is part of a cycle that hasn't been processed
+                if (pointedToBy[startStudent]) {
+                    // Check if this forms a cycle by following the chain
                     let current = startStudent;
-                    let allProcessed = true;
-                    const visited = new Set();
+                    let steps = 0;
+                    const maxSteps = Object.keys(assignments).length + 1;
 
-                    while (current && !visited.has(current)) {
-                        if (!processedStudents.has(current)) {
-                            allProcessed = false;
+                    while (current && steps < maxSteps) {
+                        const nextSeat = assignments[current];
+                        if (!nextSeat) break;
+
+                        const nextStudent = Object.keys(studentToCurrentSeat)
+                            .find(s => studentToCurrentSeat[s] === nextSeat);
+
+                        if (nextStudent === startStudent) {
+                            // Found a cycle! This is OK to process
+                            break;
                         }
-                        visited.add(current);
-                        current = pointsTo[current];
+
+                        if (!nextStudent || !assignments[nextStudent]) break;
+                        current = nextStudent;
+                        steps++;
                     }
 
-                    // If all students in this component are processed, skip
-                    // If some aren't processed but this isn't a cycle head, skip
-                    if (allProcessed) continue;
-
-                    // For cycles where no one has been processed, allow the first one we encounter
-                    if (visited.has(startStudent)) {
-                        // This is a cycle, allow it
-                    } else {
-                        // This is a linear chain and we're in the middle, skip
-                        continue;
-                    }
+                    // If we didn't find a cycle back to startStudent, skip this student
+                    if (current !== startStudent) continue;
                 }
 
                 const chain = [];
