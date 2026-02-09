@@ -621,15 +621,7 @@
                         currentStudent = nextStudent;
                     } else {
                         // Chain ends here (moving to empty seat or to someone not moving)
-                        if (nextStudent) {
-                            // Someone sits there but isn't moving - this shouldn't happen in valid logic
-                            chain.push({
-                                student: nextStudent,
-                                currentSeat: assignedSeat,
-                                newSeat: null,
-                                isBlocking: true
-                            });
-                        }
+                        // Don't add anything else to the chain
                         break;
                     }
                 }
@@ -671,24 +663,22 @@
                     const isCycle = chainData.isCycle;
 
                     // Build chain text
-                    const chainText = chain
-                        .filter(node => node.currentSeat !== null && node.currentSeat !== undefined)
-                        .map((node, i, filteredChain) => {
-                            let text = `${node.student} (${node.currentSeat})`;
+                    const chainText = chain.map((node, i) => {
+                        let text = `${node.student} (${node.currentSeat})`;
 
-                            // Add arrow
-                            if (i < filteredChain.length - 1) {
-                                text += ' → ';
-                            } else if (isCycle) {
-                                // For cycles, show arrow back to start
-                                text += ` → ${filteredChain[0].student} (${filteredChain[0].currentSeat})`;
-                            } else if (!node.isBlocking) {
-                                // For non-cycles, show the final destination seat
-                                text += ` → ${node.newSeat}`;
-                            }
+                        // Add arrow
+                        if (i < chain.length - 1) {
+                            text += ' → ';
+                        } else if (isCycle) {
+                            // For cycles, show arrow back to start
+                            text += ` → ${chain[0].student} (${chain[0].currentSeat})`;
+                        } else {
+                            // For non-cycles, show the final destination seat
+                            text += ` → ${node.newSeat}`;
+                        }
 
-                            return text;
-                        }).join('');
+                        return text;
+                    }).join('');
 
                     const cycleLabel = isCycle ? ' [CYCLE]' : '';
                     chainDiv.textContent = `Chain ${index + 1}${cycleLabel}: ${chainText}`;
