@@ -581,9 +581,21 @@
             const chains = [];
             const processedStudents = new Set();
 
+            // First, identify which students are pointed to by others (not chain heads)
+            const isPointedTo = new Set();
+            for (const [student, assignedSeat] of Object.entries(assignments)) {
+                const whoSitsThere = Object.keys(studentToCurrentSeat)
+                    .find(s => studentToCurrentSeat[s] === assignedSeat);
+                if (whoSitsThere && assignments[whoSitsThere]) {
+                    isPointedTo.add(whoSitsThere);
+                }
+            }
+
             // Process each student who got a new assignment
             for (const [startStudent, newSeat] of Object.entries(assignments)) {
                 if (processedStudents.has(startStudent)) continue;
+                // Skip if this student is pointed to by another (they're in the middle of a chain)
+                if (isPointedTo.has(startStudent)) continue;
 
                 const chain = [];
                 const studentsInChain = new Set();
