@@ -572,6 +572,9 @@
         }
 
         function generateMoveChains(assignments) {
+            console.log("=== generateMoveChains called ===");
+            console.log("Total assignments:", Object.keys(assignments).length);
+
             // Create a map of student -> current seat
             const studentToCurrentSeat = {};
             studentPreferences.forEach(pref => {
@@ -590,14 +593,21 @@
                     pointedToBy[whoSitsThere] = student;
                 }
             }
+            console.log("pointedToBy map:", pointedToBy);
+            console.log("Students NOT pointed to:", Object.keys(assignments).filter(s => !pointedToBy[s]));
 
             // Process each student who got a new assignment
+            let chainIndex = 0;
             for (const [startStudent, newSeat] of Object.entries(assignments)) {
-                if (processedStudents.has(startStudent)) continue;
+                if (processedStudents.has(startStudent)) {
+                    console.log(`${startStudent}: already processed, skip`);
+                    continue;
+                }
 
                 // Skip if someone points to this student (they're not a chain head)
                 // Exception: if this student is part of a cycle that hasn't been processed
                 if (pointedToBy[startStudent]) {
+                    console.log(`${startStudent}: pointed to by ${pointedToBy[startStudent]}, checking if cycle...`);
                     // Check if this forms a cycle by following the chain
                     let current = startStudent;
                     let steps = 0;
@@ -621,7 +631,13 @@
                     }
 
                     // If we didn't find a cycle back to startStudent, skip this student
-                    if (current !== startStudent) continue;
+                    if (current !== startStudent) {
+                        console.log(`${startStudent}: not a cycle, skipping`);
+                        continue;
+                    }
+                    console.log(`${startStudent}: is a cycle, processing`);
+                } else {
+                    console.log(`${startStudent}: NOT pointed to - chain head!`);
                 }
 
                 const chain = [];
@@ -667,6 +683,8 @@
 
                 // Only add chains with at least 1 move
                 if (chain.length >= 1) {
+                    chainIndex++;
+                    console.log(`Chain ${chainIndex}: ${chain.map(n => n.student).join(' -> ')} (${chain.length} students, isCycle: ${isCycle})`);
                     chains.push({
                         nodes: chain,
                         isCycle: isCycle
@@ -674,6 +692,7 @@
                 }
             }
 
+            console.log(`=== Total chains created: ${chains.length} ===`);
             return chains;
         }
 
