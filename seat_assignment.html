@@ -612,6 +612,7 @@
                     let current = startStudent;
                     let steps = 0;
                     const maxSteps = Object.keys(assignments).length + 1;
+                    let foundCycle = false;
 
                     while (current && steps < maxSteps) {
                         const nextSeat = assignments[current];
@@ -622,6 +623,7 @@
 
                         if (nextStudent === startStudent) {
                             // Found a cycle! This is OK to process
+                            foundCycle = true;
                             break;
                         }
 
@@ -631,7 +633,7 @@
                     }
 
                     // If we didn't find a cycle back to startStudent, skip this student
-                    if (current !== startStudent) {
+                    if (!foundCycle) {
                         console.log(`${startStudent}: not a cycle, skipping`);
                         continue;
                     }
