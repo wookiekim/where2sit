@@ -581,21 +581,51 @@
             const chains = [];
             const processedStudents = new Set();
 
-            // First, identify which students are pointed to by others (not chain heads)
-            const isPointedTo = new Set();
+            // Build a graph of who points to whom
+            const pointsTo = {}; // student -> next student in chain
             for (const [student, assignedSeat] of Object.entries(assignments)) {
                 const whoSitsThere = Object.keys(studentToCurrentSeat)
                     .find(s => studentToCurrentSeat[s] === assignedSeat);
                 if (whoSitsThere && assignments[whoSitsThere]) {
-                    isPointedTo.add(whoSitsThere);
+                    pointsTo[student] = whoSitsThere;
                 }
             }
+
+            // Find students who aren't pointed to by anyone (potential chain heads)
+            const isPointedTo = new Set(Object.values(pointsTo));
 
             // Process each student who got a new assignment
             for (const [startStudent, newSeat] of Object.entries(assignments)) {
                 if (processedStudents.has(startStudent)) continue;
+
                 // Skip if this student is pointed to by another (they're in the middle of a chain)
-                if (isPointedTo.has(startStudent)) continue;
+                // UNLESS all students in their component are already pointed to (meaning it's a cycle)
+                if (isPointedTo.has(startStudent)) {
+                    // Check if any student in this chain/cycle hasn't been processed
+                    let current = startStudent;
+                    let allProcessed = true;
+                    const visited = new Set();
+
+                    while (current && !visited.has(current)) {
+                        if (!processedStudents.has(current)) {
+                            allProcessed = false;
+                        }
+                        visited.add(current);
+                        current = pointsTo[current];
+                    }
+
+                    // If all students in this component are processed, skip
+                    // If some aren't processed but this isn't a cycle head, skip
+                    if (allProcessed) continue;
+
+                    // For cycles where no one has been processed, allow the first one we encounter
+                    if (visited.has(startStudent)) {
+                        // This is a cycle, allow it
+                    } else {
+                        // This is a linear chain and we're in the middle, skip
+                        continue;
+                    }
+                }
 
                 const chain = [];
                 const studentsInChain = new Set();
