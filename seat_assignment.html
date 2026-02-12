@@ -506,8 +506,11 @@
                 letsGoButton.disabled = true;
                 letsGoButton.textContent = 'Loading...';
 
+                // Add cache-busting timestamp to prevent stale data
+                const cacheBuster = '?t=' + new Date().getTime();
+
                 // Load priority students first
-                const priorityResponse = await fetch('students.txt');
+                const priorityResponse = await fetch('students.txt' + cacheBuster);
                 const priorityData = await priorityResponse.text();
                 const students = priorityData.trim().split('\n').filter(s => s);
 
@@ -525,7 +528,7 @@
                     .map(name => name.replace('-', ''));
 
                 // Load and validate preferences
-                const response = await fetch('cvlab_seat_preference.csv');
+                const response = await fetch('cvlab_seat_preference.csv' + cacheBuster);
                 const data = await response.text();
                 const rows = data.trim().split('\n');
                 
