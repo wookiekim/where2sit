@@ -12,7 +12,7 @@ You have two files to control the seat assignment: `students.txt`, and `cvlab_se
 
 - `cvlab_seat_preference.csv` shows seat preferences of each student. 
 Each row contains {name}, {current seat}, {preference sequence} of a student.
-To create this file, you may distribute this link (https://jinsingsangsung.github.io/where2sit/) to participants to create their rows,
+To create this file, you may distribute this link (https://wookiekim.github.io/where2sit/) to participants to create their rows,
 and make people fill out the shared google spreadsheet. Make sure all people to use *copy to clipboard* button to ensure uniformity of each row.
 <p align="center">
   <img src="https://github.com/user-attachments/assets/382231aa-5aba-4f00-a328-91316696bdc5" width="700"/>
