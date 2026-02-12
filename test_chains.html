@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chain Generation Test</title>
+</head>
+<body>
+    <h1>Chain Generation Test</h1>
+    <div id="output"></div>
+
+    <script>
+        // Simulate the chain generation logic
+        function generateMoveChains(assignments, studentToCurrentSeat) {
+            const chains = [];
+            const processedStudents = new Set();
+
+            // Build a graph of who points to whom
+            const pointsTo = {}; // student -> next student in chain
+            for (const [student, assignedSeat] of Object.entries(assignments)) {
+                const whoSitsThere = Object.keys(studentToCurrentSeat)
+                    .find(s => studentToCurrentSeat[s] === assignedSeat);
+                if (whoSitsThere && assignments[whoSitsThere]) {
+                    pointsTo[student] = whoSitsThere;
+                }
+            }
+
+            console.log("pointsTo graph:", pointsTo);
+
+            // Find students who aren't pointed to by anyone (potential chain heads)
+            const isPointedTo = new Set(Object.values(pointsTo));
+            console.log("isPointedTo:", Array.from(isPointedTo));
+
+            // Process each student who got a new assignment
+            for (const [startStudent, newSeat] of Object.entries(assignments)) {
+                console.log(`\nProcessing ${startStudent}...`);
+
+                if (processedStudents.has(startStudent)) {
+                    console.log(`  -> Already processed, skipping`);
+                    continue;
+                }
+
+                // Skip if this student is pointed to by another (they're in the middle of a chain)
+                // UNLESS all students in their component are already pointed to (meaning it's a cycle)
+                if (isPointedTo.has(startStudent)) {
+                    console.log(`  -> ${startStudent} is pointed to by someone`);
+
+                    // Check if any student in this chain/cycle hasn't been processed
+                    let current = startStudent;
+                    let allProcessed = true;
+                    const visited = new Set();
+
+                    while (current && !visited.has(current)) {
+                        if (!processedStudents.has(current)) {
+                            allProcessed = false;
+                        }
+                        visited.add(current);
+                        current = pointsTo[current];
+                    }
+
+                    console.log(`  -> visited in component:`, Array.from(visited));
+                    console.log(`  -> allProcessed:`, allProcessed);
+                    console.log(`  -> is cycle (visited has startStudent):`, visited.has(startStudent) && visited.size > 1);
+
+                    // If all students in this component are processed, skip
+                    if (allProcessed) {
+                        console.log(`  -> All processed, skipping`);
+                        continue;
+                    }
+
+                    // For cycles where no one has been processed, allow the first one we encounter
+                    if (visited.has(startStudent) && visited.size > 1) {
+                        console.log(`  -> This is a cycle, allowing`);
+                        // This is a cycle, allow it
+                    } else {
+                        // This is a linear chain and we're in the middle, skip
+                        console.log(`  -> Linear chain middle, skipping`);
+                        continue;
+                    }
+                }
+
+                const chain = [];
+                const studentsInChain = new Set();
+                let currentStudent = startStudent;
+                let isCycle = false;
+
+                console.log(`  -> Building chain from ${startStudent}...`);
+
+                // Follow the chain
+                while (currentStudent && !studentsInChain.has(currentStudent)) {
+                    const currentSeat = studentToCurrentSeat[currentStudent];
+                    const assignedSeat = assignments[currentStudent];
+
+                    if (!assignedSeat) break;
+
+                    chain.push({
+                        student: currentStudent,
+                        currentSeat: currentSeat,
+                        newSeat: assignedSeat
+                    });
+
+                    studentsInChain.add(currentStudent);
+                    processedStudents.add(currentStudent);
+
+                    // Find who currently sits in the seat this student is moving to
+                    const nextStudent = Object.keys(studentToCurrentSeat)
+                        .find(student => studentToCurrentSeat[student] === assignedSeat);
+
+                    // Check if this completes a cycle
+                    if (nextStudent === startStudent) {
+                        isCycle = true;
+                        break;
+                    }
+
+                    // Check if next student also got a new assignment (continues the chain)
+                    if (nextStudent && assignments[nextStudent]) {
+                        currentStudent = nextStudent;
+                    } else {
+                        break;
+                    }
+                }
+
+                console.log(`  -> Chain built with ${chain.length} students, isCycle: ${isCycle}`);
+
+                // Only add chains with at least 1 move
+                if (chain.length >= 1) {
+                    chains.push({
+                        nodes: chain,
+                        isCycle: isCycle
+                    });
+                }
+            }
+
+            return chains;
+        }
+
+        // Test Case 1: Simple linear chain A -> B -> C -> empty
+        console.log("=== TEST 1: Linear Chain A -> B -> C -> empty ===");
+        const test1_assignments = {
+            'A': 10,  // A moves to seat 10 (B's current seat)
+            'B': 20,  // B moves to seat 20 (C's current seat)
+            'C': 30   // C moves to seat 30 (empty)
+        };
+        const test1_currentSeats = {
+            'A': 5,
+            'B': 10,
+            'C': 20
+        };
+        const chains1 = generateMoveChains(test1_assignments, test1_currentSeats);
+        console.log("Result: Should have 1 chain (A -> B -> C -> 30)");
+        console.log("Actual chains:", chains1.length);
+        chains1.forEach((c, i) => {
+            console.log(`Chain ${i+1}:`, c.nodes.map(n => n.student).join(' -> '));
+        });
+
+        // Test Case 2: Chain with head not first in iteration
+        console.log("\n=== TEST 2: Chain D -> E -> F, but E processed first ===");
+        const test2_assignments = {
+            'E': 30,  // E moves to F's seat
+            'D': 20,  // D moves to E's seat
+            'F': 40   // F moves to empty
+        };
+        const test2_currentSeats = {
+            'D': 10,
+            'E': 20,
+            'F': 30
+        };
+        const chains2 = generateMoveChains(test2_assignments, test2_currentSeats);
+        console.log("Result: Should have 1 chain (D -> E -> F -> 40)");
+        console.log("Actual chains:", chains2.length);
+        chains2.forEach((c, i) => {
+            console.log(`Chain ${i+1}:`, c.nodes.map(n => n.student).join(' -> '));
+        });
+
+        // Test Case 3: Cycle
+        console.log("\n=== TEST 3: Cycle X -> Y -> Z -> X ===");
+        const test3_assignments = {
+            'X': 20,  // X moves to Y's seat
+            'Y': 30,  // Y moves to Z's seat
+            'Z': 10   // Z moves to X's seat
+        };
+        const test3_currentSeats = {
+            'X': 10,
+            'Y': 20,
+            'Z': 30
+        };
+        const chains3 = generateMoveChains(test3_assignments, test3_currentSeats);
+        console.log("Result: Should have 1 cycle");
+        console.log("Actual chains:", chains3.length);
+        chains3.forEach((c, i) => {
+            console.log(`Chain ${i+1}:`, c.nodes.map(n => n.student).join(' -> '), `isCycle: ${c.isCycle}`);
+        });
+
+        // Display results
+        const output = document.getElementById('output');
+        output.innerHTML = `
+            <h2>Test Results</h2>
+            <p>Check the browser console for detailed output</p>
+            <p><strong>Test 1:</strong> ${chains1.length === 1 ? '✅ PASS' : '❌ FAIL'} (Expected 1 chain, got ${chains1.length})</p>
+            <p><strong>Test 2:</strong> ${chains2.length === 1 ? '✅ PASS' : '❌ FAIL'} (Expected 1 chain, got ${chains2.length})</p>
+            <p><strong>Test 3:</strong> ${chains3.length === 1 && chains3[0].isCycle ? '✅ PASS' : '❌ FAIL'} (Expected 1 cycle, got ${chains3.length} chains)</p>
+        `;
+    </script>
+</body>
+</html>
