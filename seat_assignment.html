@@ -800,24 +800,30 @@
             const numNormal = normalStudents.length;
             const totalStudents = allStudents.length;
 
-            // Priority students get ranks 0 to PRIORITY_NUM-1 (or less if fewer priority students)
-            const priorityPool = Array.from({length: Math.min(PRIORITY_NUM, numPriority)}, (_, i) => i);
+            // Create priority pool: ranks 0 to PRIORITY_NUM-1
+            const priorityPool = Array.from({length: PRIORITY_NUM}, (_, i) => i);
             shuffleArray(priorityPool);
 
-            // Normal students get the middle ranks
-            const normalStart = priorityPool.length;
-            const normalEnd = totalStudents - numDeprioritized;
-            const normalPool = Array.from({length: normalEnd - normalStart}, (_, i) => i + normalStart);
+            // Priority students take the first numPriority ranks from the shuffled priority pool
+            const priorityRanks = priorityPool.slice(0, numPriority);
+
+            // Remaining ranks from priority pool go to normal students, along with ranks after PRIORITY_NUM
+            const remainingPriorityRanks = priorityPool.slice(numPriority);
+            const higherRanks = Array.from(
+                {length: totalStudents - PRIORITY_NUM - numDeprioritized},
+                (_, i) => i + PRIORITY_NUM
+            );
+            const normalPool = [...remainingPriorityRanks, ...higherRanks];
             shuffleArray(normalPool);
 
             // Deprioritized students get the last ranks
-            const deprioritizedStart = normalEnd;
+            const deprioritizedStart = totalStudents - numDeprioritized;
             const deprioritizedPool = Array.from({length: numDeprioritized}, (_, i) => i + deprioritizedStart);
             shuffleArray(deprioritizedPool);
 
             // Assign priority students to their ranks
             priorityStudents.forEach((student, i) => {
-                rankings.push([student, priorityPool[i]]);
+                rankings.push([student, priorityRanks[i]]);
             });
 
             // Shuffle and assign normal students
